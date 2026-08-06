@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KubeShop</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <h1>🛒 KubeShop</h1>
+            <p>Boutique déployée avec Docker et Kubernetes</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section>
+            <h2>Nos produits</h2>
+
+            <div class="products">
+                <article class="product-card">
+                    <div class="product-icon">💻</div>
+                    <h3>Ordinateur portable</h3>
+                    <p>Ordinateur performant pour le travail et les études.</p>
+                    <strong>1 299,99 $</strong>
+                    <button onclick="selectProduct('Ordinateur portable', 1299.99)">
+                        Acheter
+                    </button>
+                </article>
+
+                <article class="product-card">
+                    <div class="product-icon">🖥️</div>
+                    <h3>Moniteur 4K</h3>
+                    <p>Écran 43 pouces Ultra HD pour une grande productivité.</p>
+                    <strong>599,99 $</strong>
+                    <button onclick="selectProduct('Moniteur 4K', 599.99)">
+                        Acheter
+                    </button>
+                </article>
+
+                <article class="product-card">
+                    <div class="product-icon">⌨️</div>
+                    <h3>Clavier mécanique</h3>
+                    <p>Clavier confortable avec éclairage intégré.</p>
+                    <strong>129,99 $</strong>
+                    <button onclick="selectProduct('Clavier mécanique', 129.99)">
+                        Acheter
+                    </button>
+                </article>
+            </div>
+        </section>
+
+        <section class="services">
+            <div class="service-card">
+                <h2>Connexion</h2>
+
+                <form id="login-form">
+                    <label for="username">Nom d’utilisateur</label>
+                    <input
+                        id="username"
+                        name="username"
+                        type="text"
+                        placeholder="Votre nom"
+                        required
+                    >
+
+                    <label for="password">Mot de passe</label>
+                    <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        placeholder="Votre mot de passe"
+                        required
+                    >
+
+                    <button type="submit">Se connecter</button>
+                </form>
+
+                <p id="auth-result" class="result"></p>
+            </div>
+
+            <div class="service-card">
+                <h2>Paiement</h2>
+
+                <form id="payment-form">
+                    <label for="product">Produit sélectionné</label>
+                    <input
+                        id="product"
+                        name="product"
+                        type="text"
+                        readonly
+                        required
+                    >
+
+                    <label for="amount">Montant</label>
+                    <input
+                        id="amount"
+                        name="amount"
+                        type="number"
+                        step="0.01"
+                        readonly
+                        required
+                    >
+
+                    <button type="submit">Simuler le paiement</button>
+                </form>
+
+                <p id="payment-result" class="result"></p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>KubeShop — Projet SuperKuberneteX de Youness Safouani</p>
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
