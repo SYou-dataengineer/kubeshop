@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: kubeshop
+  labels:
+    app.kubernetes.io/name: auth-service
+    app.kubernetes.io/part-of: kubeshop
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kubeshop-auth-service
+  template:
+    metadata:
+      labels:
+        app: kubeshop-auth-service
+    spec:
+      containers:
+        - name: auth-service
+          image: kubeshop-auth-service:k8s-v1
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 3001
+          env:
+            - name: PORT
+              value: "3001"
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: kubeshop-config
+                  key: REDIS_URL
+            - name: SESSION_TTL_SECONDS
+              valueFrom:
+                configMapKeyRef:
+                  name: kubeshop-config
+                  key: SESSION_TTL_SECONDS
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 2
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: kubeshop
+spec:
+  type: ClusterIP
+  selector:
+    app: kubeshop-auth-service
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http
