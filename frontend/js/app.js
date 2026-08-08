@@ -1,5 +1,5 @@
-const AUTH_API_URL = "http://localhost:3001";
-const PAYMENT_API_URL = "http://localhost:3002";
+const AUTH_API_URL = "";
+const PAYMENT_API_URL = "";
 
 const productInput = document.getElementById("product");
 const amountInput = document.getElementById("amount");

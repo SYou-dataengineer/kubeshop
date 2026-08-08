@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kubeshop-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: kubeshop.local
+      http:
+        paths:
+          - path: /login
+            pathType: Exact
+            backend:
+              service:
+                name: kubeshop-auth
+                port:
+                  number: 3001
+
+          - path: /payments
+            pathType: Exact
+            backend:
+              service:
+                name: kubeshop-payment
+                port:
+                  number: 3002
+
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kubeshop-frontend
+                port:
+                  number: 80
