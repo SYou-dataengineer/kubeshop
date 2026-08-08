@@ -247,7 +247,19 @@ Dans Chrome :
 ```text
 http://kubeshop.local:8081
 ```
+## Démonstration de l’application
 
+### Connexion et paiement
+
+La capture suivante présente l’interface KubeShop, la connexion réussie, la sélection du Moniteur 4K et la confirmation du paiement.
+
+![Connexion et paiement réussis dans KubeShop](docs/images/kubeshop-paiement.png)
+
+### État du cluster Kubernetes
+
+Cette capture confirme le fonctionnement des trois Deployments, des six Pods, des Services ClusterIP et de l’Ingress NGINX.
+
+![État des ressources du cluster Kubernetes](docs/images/cluster-kubernetes.png)
 ## Tests de l’Ingress
 
 Garder le `port-forward` actif et ouvrir un deuxième terminal.
