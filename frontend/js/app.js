@@ -1,3 +1,5 @@
+const AUTH_API_URL = "http://localhost:3001";
+
 const productInput = document.getElementById("product");
 const amountInput = document.getElementById("amount");
 const authResult = document.getElementById("auth-result");
@@ -17,7 +19,7 @@ function selectProduct(productName, price) {
 
 document
     .getElementById("login-form")
-    .addEventListener("submit", function (event) {
+    .addEventListener("submit", async function (event) {
         event.preventDefault();
 
         const username = document.getElementById("username").value.trim();
@@ -29,8 +31,34 @@ document
             return;
         }
 
-        authResult.textContent = `Bienvenue ${username} ! Connexion simulée avec succès.`;
-        authResult.className = "result success";
+        authResult.textContent = "Connexion en cours...";
+        authResult.className = "result";
+
+        try {
+            const response = await fetch(`${AUTH_API_URL}/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    username,
+                    password
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || "Échec de la connexion.");
+            }
+
+            authResult.textContent = data.message;
+            authResult.className = "result success";
+        } catch (error) {
+            authResult.textContent =
+                `Erreur de connexion au service : ${error.message}`;
+            authResult.className = "result error";
+        }
     });
 
 document
@@ -55,5 +83,6 @@ document
 
         paymentResult.textContent =
             `Paiement simulé avec succès : ${product} — ${formattedAmount}`;
+
         paymentResult.className = "result success";
     });
