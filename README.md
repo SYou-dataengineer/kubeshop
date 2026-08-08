@@ -1,61 +1,91 @@
 # KubeShop
 
-KubeShop est une application web de commerce électronique composée de trois services conteneurisés avec Docker et déployés sur Kubernetes.
+KubeShop est une application web de commerce électronique conteneurisée avec Docker et déployée sur Kubernetes avec Minikube.
 
-Ce projet démontre une migration vers une architecture microservices utilisant Minikube, des Deployments Kubernetes, des Services ClusterIP, des sondes de santé et un Ingress NGINX.
+Le projet démontre une migration vers une architecture microservices comprenant un frontend NGINX, deux API Node.js, Redis, PostgreSQL, des volumes persistants et des mécanismes Kubernetes de résilience.
 
 ## Fonctionnalités
 
-- Consultation de produits informatiques
+- Affichage de produits informatiques
 - Simulation de connexion utilisateur
-- Sélection d’un produit
-- Simulation d’un paiement en dollars canadiens
-- Création automatique d’un numéro de transaction
-- Communication entre les services par Ingress
-- Deux réplicas pour chaque composant
-- Vérification automatique de l’état des Pods
-- Routage centralisé avec `kubeshop.local`
+- Stockage des sessions dans Redis
+- Simulation de paiements en dollars canadiens
+- Enregistrement des transactions dans PostgreSQL
+- Génération d’un identifiant `PAY-XXXXXXXX`
+- Communication entre les services Kubernetes
+- Répartition de charge entre plusieurs répliques
+- Auto-réparation des pods
+- Mise à l’échelle horizontale
+- Persistance des données
+- Vérification automatique de l’état des conteneurs
 
 ## Technologies utilisées
 
 - HTML, CSS et JavaScript
-- Node.js 22
-- Express.js
+- Node.js et Express
 - NGINX
+- Redis
+- PostgreSQL
 - Docker
 - Kubernetes
 - Minikube
 - kubectl
-- Ingress NGINX
 - WSL2 et Ubuntu
+- Git et GitHub
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    U[Navigateur] --> I[Ingress NGINX]
-
-    I -->|/| F[Service Frontend]
-    I -->|/login| A[Service Auth]
-    I -->|/payments| P[Service Payment]
-
-    F --> F1[Frontend Pod 1]
-    F --> F2[Frontend Pod 2]
-
-    A --> A1[Auth Pod 1]
-    A --> A2[Auth Pod 2]
-
-    P --> P1[Payment Pod 1]
-    P --> P2[Payment Pod 2]
+    U["Navigateur"] --> F["Frontend NGINX"]
+    F --> A["Auth Service"]
+    F --> P["Payment Service"]
+    A --> R["Redis"]
+    P --> D["PostgreSQL"]
 ```
 
-L’Ingress distribue les requêtes selon la route demandée :
+Le frontend agit également comme passerelle vers les API :
 
-| Route | Service Kubernetes | Port | Fonction |
-|---|---|---:|---|
-| `/` | `kubeshop-frontend` | 80 | Interface web |
-| `/login` | `kubeshop-auth` | 3001 | Authentification |
-| `/payments` | `kubeshop-payment` | 3002 | Simulation de paiement |
+| Route | Destination | Fonction |
+|---|---|---|
+| `/` | Frontend NGINX | Interface web |
+| `/health` | Frontend NGINX | État du frontend |
+| `/login` | Auth Service | Connexion et création d’une session |
+| `/payments` | Payment Service | Paiement et création d’une transaction |
+
+## Composants Kubernetes
+
+| Composant | Image | Répliques | Service | Port |
+|---|---|---:|---|---:|
+| Frontend | `kubeshop-frontend:k8s-v1` | 2 | `frontend` | 80 |
+| Auth Service | `kubeshop-auth-service:k8s-v1` | 2 | `auth-service` | 3001 |
+| Payment Service | `kubeshop-payment-service:k8s-v2` | 2 | `payment-service` | 3002 |
+| Redis | Image officielle Redis | 1 | `redis` | 6379 |
+| PostgreSQL | Image officielle PostgreSQL | 1 | `postgres` | 5432 |
+
+Toutes les ressources sont déployées dans le namespace `kubeshop`.
+
+## Stockage persistant
+
+Deux PersistentVolumeClaims sont utilisés :
+
+| Volume | Capacité | Utilisation |
+|---|---:|---|
+| `postgres-data` | 1 Gi | Transactions de paiement |
+| `redis-data` | 1 Gi | Sessions et données Redis |
+
+Les données restent disponibles après le remplacement des pods PostgreSQL ou Redis.
+
+## Sondes de santé
+
+Les trois services applicatifs possèdent :
+
+- une `startupProbe`;
+- une `readinessProbe`;
+- une `livenessProbe`;
+- des demandes et limites de ressources CPU et mémoire.
+
+Les sondes utilisent la route `/health`.
 
 ## Structure du projet
 
@@ -76,51 +106,26 @@ kubeshop/
 │   ├── package.json
 │   └── server.js
 ├── k8s/
-│   ├── auth.yaml
-│   ├── frontend.yaml
-│   ├── ingress.yaml
-│   └── payment.yaml
+│   └── base/
+│       ├── 00-namespace.yaml
+│       ├── 01-configmap.yaml
+│       ├── 02-secret.yaml
+│       ├── 10-postgres.yaml
+│       ├── 11-redis.yaml
+│       ├── 20-auth-service.yaml
+│       ├── 21-payment-service.yaml
+│       └── 22-frontend.yaml
+├── docs/
+│   └── images/
+├── docker-compose.yml
+├── .env.example
+├── .gitignore
 └── README.md
 ```
 
-## Composants
-
-### Frontend
-
-Le frontend est une application statique HTML, CSS et JavaScript servie par NGINX.
-
-- Image : `kubeshop-frontend:v6`
-- Port du conteneur : `80`
-- Route de santé : `/health`
-- Nombre de réplicas : `2`
-
-### Auth Service
-
-Le service Auth est une API Node.js avec Express.
-
-- Image : `kubeshop-auth:v1`
-- Port : `3001`
-- `GET /health` : vérifie l’état du service
-- `POST /login` : simule une connexion
-- Nombre de réplicas : `2`
-
-La version actuelle accepte tout nom d’utilisateur et tout mot de passe non vides. Il s’agit d’une simulation destinée au projet.
-
-### Payment Service
-
-Le service Payment est une API Node.js avec Express.
-
-- Image : `kubeshop-payment:v1`
-- Port : `3002`
-- `GET /health` : vérifie l’état du service
-- `POST /payments` : simule un paiement
-- Nombre de réplicas : `2`
-
-Un identifiant de transaction au format `PAY-XXXXXXXX` est généré pour chaque paiement approuvé.
+> Les manifestes validés de la version actuelle se trouvent dans `k8s/base/`.
 
 ## Prérequis
-
-Avant de démarrer le projet, installer :
 
 - Docker Desktop
 - WSL2 avec Ubuntu
@@ -141,202 +146,305 @@ cd kubeshop
 
 ```bash
 minikube start --driver=docker
-```
-
-Vérifier le cluster :
-
-```bash
 minikube status
 kubectl get nodes
 ```
 
-Le nœud `minikube` doit avoir l’état `Ready`.
+Le nœud Minikube doit être `Ready`.
 
-### 3. Activer Ingress
-
-```bash
-minikube addons enable ingress
-```
-
-Vérifier le contrôleur :
+## Construction des images
 
 ```bash
-kubectl get pods -n ingress-nginx
+docker build -t kubeshop-frontend:k8s-v1 ./frontend
+docker build -t kubeshop-auth-service:k8s-v1 ./auth-service
+docker build -t kubeshop-payment-service:k8s-v2 ./payment-service
 ```
 
-## Construction des images Docker
-
-Construire les trois images :
+Charger ensuite les images dans Minikube :
 
 ```bash
-docker build -t kubeshop-frontend:v6 ./frontend
-docker build -t kubeshop-auth:v1 ./auth-service
-docker build -t kubeshop-payment:v1 ./payment-service
+minikube image load kubeshop-frontend:k8s-v1
+minikube image load kubeshop-auth-service:k8s-v1
+minikube image load kubeshop-payment-service:k8s-v2
 ```
 
-Charger les images dans Minikube :
-
-```bash
-minikube image load kubeshop-frontend:v6
-minikube image load kubeshop-auth:v1
-minikube image load kubeshop-payment:v1
-```
-
-Vérifier les images :
+Vérification :
 
 ```bash
 minikube image ls | grep kubeshop
 ```
 
+Les manifestes utilisent `imagePullPolicy: Never`. Les images doivent donc être présentes localement dans Minikube.
+
 ## Déploiement Kubernetes
 
-Appliquer tous les fichiers Kubernetes :
+Créer le namespace :
 
 ```bash
-kubectl apply -f k8s/
+kubectl apply -f k8s/base/00-namespace.yaml
 ```
 
-Attendre la fin des déploiements :
+Appliquer les manifestes :
 
 ```bash
-kubectl rollout status deployment/kubeshop-frontend
-kubectl rollout status deployment/kubeshop-auth
-kubectl rollout status deployment/kubeshop-payment
+kubectl apply -f k8s/base/
 ```
 
-Vérifier les ressources :
+Attendre les déploiements :
 
 ```bash
-kubectl get deployments
-kubectl get pods -o wide
-kubectl get services
-kubectl get ingress
+kubectl rollout status deployment/postgres -n kubeshop
+kubectl rollout status deployment/redis -n kubeshop
+kubectl rollout status deployment/auth-service -n kubeshop
+kubectl rollout status deployment/payment-service -n kubeshop
+kubectl rollout status deployment/frontend -n kubeshop
+```
+
+Vérifier l’environnement :
+
+```bash
+kubectl get deployments,services,pods,pvc -n kubeshop
 ```
 
 Résultat attendu :
 
-- 3 Deployments à `2/2`
-- 6 Pods à l’état `Running`
-- 3 Services KubeShop
-- 1 Ingress nommé `kubeshop-ingress`
+- 5 déploiements disponibles;
+- 8 pods `Running`;
+- Frontend, Auth et Payment à `2/2`;
+- PostgreSQL et Redis à `1/1`;
+- 2 volumes persistants `Bound`.
 
 ## Accès à l’application
 
-### 1. Ouvrir le tunnel Ingress
+Ouvrir un port-forward vers le frontend :
 
 ```bash
-kubectl port-forward -n ingress-nginx \
-  service/ingress-nginx-controller 8081:80
+kubectl port-forward -n kubeshop service/frontend 8082:80
 ```
 
-Laisser ce terminal ouvert.
-
-### 2. Configurer le fichier hosts de Windows
-
-Ouvrir PowerShell en tant qu’administrateur et exécuter :
-
-```powershell
-Add-Content -Path "$env:WINDIR\System32\drivers\etc\hosts" -Value "`r`n127.0.0.1 kubeshop.local"
-ipconfig /flushdns
-```
-
-### 3. Ouvrir l’application
-
-Dans Chrome :
+L’application devient accessible à l’adresse :
 
 ```text
-http://kubeshop.local:8081
+http://localhost:8082
 ```
-## Démonstration de l’application
 
-### Connexion et paiement
+Le terminal du port-forward doit rester ouvert.
 
-La capture suivante présente l’interface KubeShop, la connexion réussie, la sélection du Moniteur 4K et la confirmation du paiement.
+## Tests fonctionnels
 
-![Connexion et paiement réussis dans KubeShop](docs/images/kubeshop-paiement.png)
+### Santé du frontend
+
+```bash
+curl -i http://localhost:8082/health
+```
+
+### Authentification
+
+```bash
+curl -i \
+  -X POST \
+  http://localhost:8082/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"Youness","password":"test-kubeshop"}'
+```
+
+Une connexion réussie retourne notamment un `sessionToken`.
+
+### Paiement
+
+```bash
+curl -i \
+  -X POST \
+  http://localhost:8082/payments \
+  -H 'Content-Type: application/json' \
+  -d '{"product":"Test Kubernetes","amount":29.99}'
+```
+
+Une transaction approuvée retourne un identifiant au format `PAY-XXXXXXXX`.
+
+## Vérification de Redis
+
+Afficher les clés :
+
+```bash
+kubectl exec \
+  -n kubeshop \
+  deployment/redis \
+  -- redis-cli --scan
+```
+
+Les sessions sont enregistrées sous la forme :
+
+```text
+session:<identifiant>
+```
+
+## Vérification de PostgreSQL
+
+```bash
+kubectl exec \
+  -n kubeshop \
+  deployment/postgres \
+  -- psql -U kubeshop -d kubeshop \
+  -c "SELECT transaction_id, product, amount, currency, status FROM payments ORDER BY processed_at DESC LIMIT 5;"
+```
+
+## Test d’auto-réparation
+
+Afficher les pods Payment :
+
+```bash
+kubectl get pods \
+  -n kubeshop \
+  -l app=kubeshop-payment-service
+```
+
+Supprimer l’un des deux pods :
+
+```bash
+kubectl delete pod \
+  -n kubeshop \
+  NOM_DU_POD_PAYMENT
+```
+
+Surveiller son remplacement :
+
+```bash
+kubectl get pods \
+  -n kubeshop \
+  -l app=kubeshop-payment-service \
+  -w
+```
+
+Kubernetes crée automatiquement un nouveau pod afin de rétablir le déploiement à `2/2`.
+
+## Test de mise à l’échelle
+
+Passer le frontend de deux à trois répliques :
+
+```bash
+kubectl scale deployment/frontend \
+  -n kubeshop \
+  --replicas=3
+```
+
+Vérifier :
+
+```bash
+kubectl get deployment frontend -n kubeshop
+kubectl get pods -n kubeshop -l app=kubeshop-frontend
+```
+
+Remettre ensuite la configuration normale :
+
+```bash
+kubectl scale deployment/frontend \
+  -n kubeshop \
+  --replicas=2
+```
+
+## Test de persistance PostgreSQL
+
+Supprimer le pod PostgreSQL :
+
+```bash
+kubectl delete pod \
+  -n kubeshop \
+  -l app=kubeshop-postgres
+```
+
+Attendre son remplacement :
+
+```bash
+kubectl wait \
+  -n kubeshop \
+  --for=condition=Ready pod \
+  -l app=kubeshop-postgres \
+  --timeout=120s
+```
+
+Relancer ensuite la requête SQL. Les transactions doivent toujours être présentes grâce au volume `postgres-data`.
+
+## Test de persistance Redis
+
+Créer une valeur temporaire :
+
+```bash
+kubectl exec \
+  -n kubeshop \
+  deployment/redis \
+  -- redis-cli SET kubeshop:persistence:test "donnee-conservee" EX 600
+```
+
+Supprimer le pod Redis :
+
+```bash
+kubectl delete pod \
+  -n kubeshop \
+  -l app=kubeshop-redis
+```
+
+Attendre son remplacement :
+
+```bash
+kubectl wait \
+  -n kubeshop \
+  --for=condition=Ready pod \
+  -l app=kubeshop-redis \
+  --timeout=120s
+```
+
+Vérifier la valeur :
+
+```bash
+kubectl exec \
+  -n kubeshop \
+  deployment/redis \
+  -- redis-cli GET kubeshop:persistence:test
+```
+
+Le résultat attendu est :
+
+```text
+donnee-conservee
+```
+
+## Résultats validés
+
+Les tests réalisés ont confirmé :
+
+- le fonctionnement complet de l’authentification;
+- la création des sessions dans Redis;
+- la création des paiements dans PostgreSQL;
+- la communication entre les microservices;
+- l’auto-réparation des pods;
+- la mise à l’échelle horizontale;
+- la persistance des transactions PostgreSQL;
+- la persistance des données Redis;
+- le fonctionnement de huit pods sans redémarrage.
+
+## Captures d’écran
 
 ### État du cluster Kubernetes
 
-Cette capture confirme le fonctionnement des trois Deployments, des six Pods, des Services ClusterIP et de l’Ingress NGINX.
+![État du cluster Kubernetes](docs/images/cluster-kubernetes.png)
 
-![État des ressources du cluster Kubernetes](docs/images/cluster-kubernetes.png)
-## Tests de l’Ingress
+### Paiement KubeShop
 
-Garder le `port-forward` actif et ouvrir un deuxième terminal.
+![Paiement KubeShop](docs/images/kubeshop-paiement.png)
 
-### Tester le frontend
+## Limites et sécurité
 
-```bash
-curl --max-time 10 \
-  -H "Host: kubeshop.local" \
-  http://localhost:8081/health
-```
+Ce projet est une démonstration pédagogique :
 
-Résultat attendu :
-
-```text
-KubeShop frontend is healthy
-```
-
-### Tester l’authentification
-
-```bash
-curl --max-time 10 \
-  -H "Host: kubeshop.local" \
-  -H "Content-Type: application/json" \
-  -X POST http://localhost:8081/login \
-  -d '{"username":"youness","password":"kubeshop123"}'
-```
-
-### Tester le paiement
-
-```bash
-curl --max-time 10 \
-  -H "Host: kubeshop.local" \
-  -H "Content-Type: application/json" \
-  -X POST http://localhost:8081/payments \
-  -d '{"product":"Moniteur 4K","amount":599.99}'
-```
-
-Le service doit retourner un paiement approuvé avec un identifiant semblable à :
-
-```text
-PAY-XXXXXXXX
-```
-
-## Résilience et santé
-
-Chaque Deployment utilise :
-
-- deux réplicas;
-- une `readinessProbe`;
-- une `livenessProbe`;
-- un Service de type `ClusterIP`.
-
-Les sondes utilisent la route `/health` pour déterminer si les conteneurs sont prêts et fonctionnels.
-
-## Arrêter le projet
-
-Arrêter le tunnel avec :
-
-```text
-Ctrl + C
-```
-
-Supprimer les ressources Kubernetes :
-
-```bash
-kubectl delete -f k8s/
-```
-
-Arrêter Minikube :
-
-```bash
-minikube stop
-```
+- l’authentification accepte tout identifiant et mot de passe non vides;
+- aucun paiement réel n’est traité;
+- les secrets de démonstration ne doivent pas être utilisés en production;
+- une solution de production devrait utiliser un gestionnaire de secrets et une stratégie de sauvegarde des bases de données.
 
 ## Auteur
 
 **Youness Safouani**
 
-Projet de fin de session — migration d’une application conteneurisée vers Kubernetes.
+AEC Développeur en mégadonnées
+Collège de Bois-de-Boulogne
