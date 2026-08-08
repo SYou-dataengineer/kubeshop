@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: kubeshop
+  labels:
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/part-of: kubeshop
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kubeshop-payment-service
+  template:
+    metadata:
+      labels:
+        app: kubeshop-payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: kubeshop-payment-service:k8s-v2
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 3002
+          env:
+            - name: PORT
+              value: "3002"
+            - name: PGHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: kubeshop-config
+                  key: PGHOST
+            - name: PGPORT
+              valueFrom:
+                configMapKeyRef:
+                  name: kubeshop-config
+                  key: PGPORT
+            - name: PGDATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: kubeshop-config
+                  key: PGDATABASE
+            - name: PGUSER
+              valueFrom:
+                configMapKeyRef:
+                  name: kubeshop-config
+                  key: PGUSER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kubeshop-secrets
+                  key: POSTGRES_PASSWORD
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 2
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: kubeshop
+spec:
+  type: ClusterIP
+  selector:
+    app: kubeshop-payment-service
+  ports:
+    - name: http
+      port: 3002
+      targetPort: http

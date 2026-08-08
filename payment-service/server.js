@@ -117,17 +117,35 @@ app.use((req, res) => {
 });
 
 async function initializeDatabase() {
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS payments (
-            id BIGSERIAL PRIMARY KEY,
-            transaction_id VARCHAR(20) UNIQUE NOT NULL,
-            product TEXT NOT NULL,
-            amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
-            currency CHAR(3) NOT NULL,
-            status VARCHAR(20) NOT NULL,
-            processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    `);
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        await client.query(
+            "SELECT pg_advisory_xact_lock($1, $2)",
+            [20260808, 3002]
+        );
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS payments (
+                id BIGSERIAL PRIMARY KEY,
+                transaction_id VARCHAR(20) UNIQUE NOT NULL,
+                product TEXT NOT NULL,
+                amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+                currency CHAR(3) NOT NULL,
+                status VARCHAR(20) NOT NULL,
+                processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        `);
+
+        await client.query("COMMIT");
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
 }
 
 async function startServer() {
