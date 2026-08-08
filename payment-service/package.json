@@ -1,0 +1,13 @@
+{
+  "name": "kubeshop-payment-service",
+  "version": "1.0.0",
+  "description": "Service de paiement de KubeShop",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0"
+  }
+}
