@@ -1,4 +1,5 @@
 const AUTH_API_URL = "http://localhost:3001";
+const PAYMENT_API_URL = "http://localhost:3002";
 
 const productInput = document.getElementById("product");
 const amountInput = document.getElementById("amount");
@@ -63,26 +64,53 @@ document
 
 document
     .getElementById("payment-form")
-    .addEventListener("submit", function (event) {
+    .addEventListener("submit", async function (event) {
         event.preventDefault();
 
-        const product = productInput.value;
+        const product = productInput.value.trim();
         const amount = Number(amountInput.value);
 
-        if (!product || !amount) {
+        if (!product || !Number.isFinite(amount) || amount <= 0) {
             paymentResult.textContent =
-                "Veuillez d’abord sélectionner un produit.";
+                "Veuillez sélectionner un produit et saisir un montant valide.";
             paymentResult.className = "result error";
             return;
         }
 
-        const formattedAmount = new Intl.NumberFormat("fr-CA", {
-            style: "currency",
-            currency: "CAD"
-        }).format(amount);
+        paymentResult.textContent = "Paiement en cours...";
+        paymentResult.className = "result";
 
-        paymentResult.textContent =
-            `Paiement simulé avec succès : ${product} — ${formattedAmount}`;
+        try {
+            const response = await fetch(`${PAYMENT_API_URL}/payments`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    product,
+                    amount
+                })
+            });
 
-        paymentResult.className = "result success";
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || "Échec du paiement.");
+            }
+
+            const formattedAmount = new Intl.NumberFormat("fr-CA", {
+                style: "currency",
+                currency: data.currency
+            }).format(data.amount);
+
+            paymentResult.textContent =
+                `${data.message} Montant : ${formattedAmount} — Transaction : ${data.transactionId}`;
+
+            paymentResult.className = "result success";
+        } catch (error) {
+            paymentResult.textContent =
+                `Erreur de connexion au service Payment : ${error.message}`;
+
+            paymentResult.className = "result error";
+        }
     });
