@@ -36,17 +36,11 @@ jobs:
       - name: Validate Docker Compose
         run: docker compose config --quiet
 
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: "v1.36.3"
-
       - name: Validate Kubernetes manifests
-        run: |
-          kubectl create \
-            --dry-run=client \
-            --validate=false \
-            -f k8s/base/
+        uses: docker://ghcr.io/yannh/kubeconform:v0.8.0
+        with:
+          entrypoint: /kubeconform
+          args: "-strict -summary -kubernetes-version 1.36.0 k8s/base/"
 
   build-images:
     name: Build ${{ matrix.service }}
