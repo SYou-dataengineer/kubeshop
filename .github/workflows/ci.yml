@@ -1,0 +1,115 @@
+name: KubeShop CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kubeshop-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate source and configuration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate Node.js syntax
+        run: |
+          node --check auth-service/server.js
+          node --check payment-service/server.js
+
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.36.3"
+
+      - name: Validate Kubernetes manifests
+        run: |
+          kubectl create \
+            --dry-run=client \
+            --validate=false \
+            -f k8s/base/
+
+  build-images:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: validate
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: frontend
+            context: ./frontend
+            image: kubeshop-frontend:ci
+
+          - service: auth-service
+            context: ./auth-service
+            image: kubeshop-auth-service:ci
+
+          - service: payment-service
+            context: ./payment-service
+            image: kubeshop-payment-service:ci
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --tag "${{ matrix.image }}" \
+            "${{ matrix.context }}"
+
+  integration:
+    name: Docker Compose integration tests
+    runs-on: ubuntu-latest
+    needs: build-images
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Start KubeShop
+        run: |
+          docker compose up \
+            --build \
+            --detach \
+            --wait \
+            --wait-timeout 180
+          docker compose ps
+
+      - name: Test health endpoints
+        run: |
+          curl --fail --silent --show-error http://localhost:8080/health
+          curl --fail --silent --show-error http://localhost:3001/health
+          curl --fail --silent --show-error http://localhost:3002/health
+
+      - name: Show logs if a test fails
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop KubeShop
+        if: always()
+        run: |
+          docker compose down \
+            --volumes \
+            --remove-orphans
