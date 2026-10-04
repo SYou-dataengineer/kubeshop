@@ -1,0 +1,116 @@
+services:
+  event-service:
+    build:
+      context: ./event-service
+    environment:
+      PORT: "3003"
+      KAFKA_BROKERS: kafka:19092
+      KAFKA_TOPIC_CLICKS: clicks
+      KAFKA_TOPIC_CART: cart-events
+      KAFKA_CLIENT_ID: kubeshop-event-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "3003:3003"
+    restart: unless-stopped
+
+  frontend:
+    depends_on:
+      event-service:
+        condition: service_healthy
+
+  cassandra:
+    image: cassandra:4.1
+    environment:
+      CASSANDRA_CLUSTER_NAME: KubeShopCluster
+      CASSANDRA_DC: datacenter1
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 100M
+    ports:
+      - "9042:9042"
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - cqlsh -e "SELECT release_version FROM system.local" || exit 1
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+
+  stream-processor:
+    build:
+      context: ./analytics/streaming
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      KAFKA_TOPIC_PAYMENTS: payments
+      KAFKA_TOPIC_CLICKS: clicks
+      KAFKA_TOPIC_CART: cart-events
+      CASSANDRA_HOST: cassandra
+      CASSANDRA_PORT: "9042"
+      CASSANDRA_KEYSPACE: kubeshop_analytics
+      PAYMENTS_CHECKPOINT_LOCATION: /checkpoints/payments
+      CLICKS_CHECKPOINT_LOCATION: /checkpoints/clicks
+      CART_CHECKPOINT_LOCATION: /checkpoints/cart
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cassandra:
+        condition: service_healthy
+      event-service:
+        condition: service_healthy
+    volumes:
+      - spark-checkpoints:/checkpoints
+    restart: unless-stopped
+
+  airflow:
+    build:
+      context: ./airflow
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+      AIRFLOW__CORE__DEFAULT_TIMEZONE: America/Toronto
+      CASSANDRA_HOST: cassandra
+      CASSANDRA_PORT: "9042"
+      CASSANDRA_KEYSPACE: kubeshop_analytics
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+    volumes:
+      - airflow-home:/opt/airflow
+      - ./airflow/dags:/opt/airflow/dags:ro
+      - ./analytics/batch:/opt/airflow/jobs:ro
+      - ./data/batch:/opt/airflow/data:ro
+      - ./data/output:/opt/airflow/output
+    command: standalone
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl --fail http://localhost:8080/health || exit 1
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+    restart: unless-stopped
+
+  analytics-dashboard:
+    image: nginx:1.27-alpine
+    depends_on:
+      airflow:
+        condition: service_healthy
+    ports:
+      - "8082:80"
+    volumes:
+      - ./analytics/dashboard:/usr/share/nginx/html
+      - ./data/output:/usr/share/nginx/html/data:ro
+    restart: unless-stopped
+
+volumes:
+  cassandra-data:
+  spark-checkpoints:
+  airflow-home:

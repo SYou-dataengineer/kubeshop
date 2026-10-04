@@ -1,10 +1,71 @@
 const AUTH_API_URL = "";
 const PAYMENT_API_URL = "";
+const EVENTS_API_URL = "";
 
 const productInput = document.getElementById("product");
 const amountInput = document.getElementById("amount");
 const authResult = document.getElementById("auth-result");
 const paymentResult = document.getElementById("payment-result");
+
+function getAnalyticsSessionId() {
+    const storageKey = "kubeshop_analytics_session_id";
+    let sessionId = sessionStorage.getItem(storageKey);
+
+    if (!sessionId) {
+        sessionId = crypto.randomUUID();
+        sessionStorage.setItem(storageKey, sessionId);
+    }
+
+    return sessionId;
+}
+
+async function trackProductClick(product, price) {
+    try {
+        const response = await fetch(`${EVENTS_API_URL}/events/clicks`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                product,
+                price,
+                sessionId: getAnalyticsSessionId()
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+    } catch (error) {
+        console.warn("Événement de clic non publié :", error.message);
+    }
+}
+
+async function trackCartAddition(product, price, quantity = 1) {
+    try {
+        const response = await fetch(`${EVENTS_API_URL}/events/cart`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                product,
+                price,
+                quantity,
+                sessionId: getAnalyticsSessionId()
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+    } catch (error) {
+        console.warn(
+            "Événement d’ajout au panier non publié :",
+            error.message
+        );
+    }
+}
 
 function selectProduct(productName, price) {
     productInput.value = productName;
@@ -13,9 +74,20 @@ function selectProduct(productName, price) {
     paymentResult.textContent = `${productName} a été sélectionné.`;
     paymentResult.className = "result success";
 
+    void trackProductClick(productName, price);
+
     document
         .getElementById("payment-form")
         .scrollIntoView({ behavior: "smooth" });
+}
+
+function addToCart(productName, price, quantity = 1) {
+    selectProduct(productName, price);
+
+    paymentResult.textContent = `${productName} a été ajouté au panier.`;
+    paymentResult.className = "result success";
+
+    void trackCartAddition(productName, price, quantity);
 }
 
 document

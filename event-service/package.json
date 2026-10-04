@@ -1,0 +1,13 @@
+{
+  "name": "kubeshop-event-service",
+  "version": "1.0.0",
+  "description": "Service de collecte des événements comportementaux KubeShop",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "5.1.0",
+    "kafkajs": "2.2.4"
+  }
+}
