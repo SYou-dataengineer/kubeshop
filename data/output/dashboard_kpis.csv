@@ -1,0 +1,2 @@
+run_date,generated_at,batch_orders,batch_units,batch_revenue,realtime_sales,realtime_revenue,total_clicks,conversion_rate_pct,combined_revenue,top_product
+2026-10-03,2026-10-03T16:08:42.805274+00:00,14,24,10619.76,2,1499.99,1,100.0,12119.75,Moniteur 4K

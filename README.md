@@ -790,3 +790,13 @@ Youness Safouani
 
 AEC Développeur en mégadonnées  
 Collège de Bois-de-Boulogne
+
+## Extension Big Data et analytique
+
+Le projet transactionnel et Kubernetes est complété par un pipeline analytique temps réel et Batch.
+
+- [Guide complet Big Data](docs/BIG_DATA_GUIDE.md)
+- [Guide Power BI](docs/powerbi/POWER_BI_GUIDE.md)
+- Validation automatique : `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-project.ps1`
+
+La plateforme Big Data complète utilise `docker-compose.yml` et `docker-compose.bigdata.yml`.

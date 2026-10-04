@@ -1,0 +1,17 @@
+[
+  {
+    "product_id": "P001",
+    "product": "Ordinateur portable",
+    "category": "Informatique"
+  },
+  {
+    "product_id": "P002",
+    "product": "Moniteur 4K",
+    "category": "Écrans"
+  },
+  {
+    "product_id": "P003",
+    "product": "Clavier mécanique",
+    "category": "Accessoires"
+  }
+]

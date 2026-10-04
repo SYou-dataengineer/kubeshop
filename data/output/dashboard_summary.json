@@ -1,0 +1,133 @@
+{
+  "generatedAt": "2026-10-03T16:08:42.805274+00:00",
+  "runDate": "2026-10-03",
+  "kpis": {
+    "run_date": "2026-10-03",
+    "generated_at": "2026-10-03T16:08:42.805274+00:00",
+    "batch_orders": 14,
+    "batch_units": 24,
+    "batch_revenue": 10619.76,
+    "realtime_sales": 2,
+    "realtime_revenue": 1499.99,
+    "total_clicks": 1,
+    "conversion_rate_pct": 100.0,
+    "combined_revenue": 12119.75,
+    "top_product": "Moniteur 4K"
+  },
+  "products": [
+    {
+      "rank": 1,
+      "product_id": "P002",
+      "product": "Moniteur 4K",
+      "category": "Écrans",
+      "batch_orders": 4,
+      "batch_units": 6,
+      "batch_revenue": 3599.94,
+      "realtime_sales": 0,
+      "realtime_revenue": 0.0,
+      "clicks": 1,
+      "conversion_rate_pct": 0.0,
+      "total_revenue": 3599.94,
+      "recommendation_score": 67.47,
+      "recommended_action": "Mettre en avant - meilleur potentiel global"
+    },
+    {
+      "rank": 2,
+      "product_id": "P001",
+      "product": "Ordinateur portable",
+      "category": "Informatique",
+      "batch_orders": 4,
+      "batch_units": 4,
+      "batch_revenue": 5199.96,
+      "realtime_sales": 0,
+      "realtime_revenue": 0.0,
+      "clicks": 0,
+      "conversion_rate_pct": 0.0,
+      "total_revenue": 5199.96,
+      "recommendation_score": 58.57,
+      "recommended_action": "Visibilité ciblée - potentiel à développer"
+    },
+    {
+      "rank": 3,
+      "product_id": "P003",
+      "product": "Clavier mécanique",
+      "category": "Accessoires",
+      "batch_orders": 6,
+      "batch_units": 14,
+      "batch_revenue": 1819.86,
+      "realtime_sales": 0,
+      "realtime_revenue": 0.0,
+      "clicks": 0,
+      "conversion_rate_pct": 0.0,
+      "total_revenue": 1819.86,
+      "recommendation_score": 47.5,
+      "recommended_action": "Maintenir le stock - demande solide"
+    },
+    {
+      "rank": 4,
+      "product_id": "REALTIME",
+      "product": "Laptop Demo",
+      "category": "Temps réel",
+      "batch_orders": 0,
+      "batch_units": 0,
+      "batch_revenue": 0.0,
+      "realtime_sales": 2,
+      "realtime_revenue": 1499.99,
+      "clicks": 0,
+      "conversion_rate_pct": 0.0,
+      "total_revenue": 1499.99,
+      "recommendation_score": 14.42,
+      "recommended_action": "Visibilité ciblée - potentiel à développer"
+    }
+  ],
+  "dailySales": [
+    {
+      "order_date": "2026-09-25",
+      "orders_count": 3,
+      "units_sold": 4,
+      "total_revenue": 2629.96
+    },
+    {
+      "order_date": "2026-09-26",
+      "orders_count": 2,
+      "units_sold": 3,
+      "total_revenue": 859.97
+    },
+    {
+      "order_date": "2026-09-27",
+      "orders_count": 2,
+      "units_sold": 4,
+      "total_revenue": 1689.96
+    },
+    {
+      "order_date": "2026-09-28",
+      "orders_count": 1,
+      "units_sold": 2,
+      "total_revenue": 259.98
+    },
+    {
+      "order_date": "2026-09-29",
+      "orders_count": 2,
+      "units_sold": 3,
+      "total_revenue": 2499.97
+    },
+    {
+      "order_date": "2026-09-30",
+      "orders_count": 1,
+      "units_sold": 4,
+      "total_revenue": 519.96
+    },
+    {
+      "order_date": "2026-10-01",
+      "orders_count": 2,
+      "units_sold": 2,
+      "total_revenue": 1899.98
+    },
+    {
+      "order_date": "2026-10-02",
+      "orders_count": 1,
+      "units_sold": 2,
+      "total_revenue": 259.98
+    }
+  ]
+}

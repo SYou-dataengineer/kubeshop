@@ -1,0 +1,5 @@
+rank,product,category,recommendation_score,total_revenue,batch_units,realtime_sales,clicks,conversion_rate_pct,recommended_action
+1,Moniteur 4K,Écrans,67.47,3599.94,6,0,1,0.0,Mettre en avant - meilleur potentiel global
+2,Ordinateur portable,Informatique,58.57,5199.96,4,0,0,0.0,Visibilité ciblée - potentiel à développer
+3,Clavier mécanique,Accessoires,47.5,1819.86,14,0,0,0.0,Maintenir le stock - demande solide
+4,Laptop Demo,Temps réel,14.42,1499.99,0,2,0,0.0,Visibilité ciblée - potentiel à développer

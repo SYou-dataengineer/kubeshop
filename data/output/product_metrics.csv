@@ -1,0 +1,4 @@
+product_id,product,category,orders_count,units_sold,total_revenue
+P001,Ordinateur portable,Informatique,4,4,5199.96
+P002,Moniteur 4K,Écrans,4,6,3599.94
+P003,Clavier mécanique,Accessoires,6,14,1819.86

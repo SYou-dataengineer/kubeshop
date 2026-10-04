@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KubeShop Analytics</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="hero">
+        <div>
+            <p class="eyebrow">Plateforme Big Data</p>
+            <h1>KubeShop Analytics</h1>
+            <p class="subtitle">
+                Indicateurs Batch et temps réel consolidés par Airflow,
+                PySpark, Kafka et Cassandra.
+            </p>
+        </div>
+        <div class="status"><span></span>Données disponibles</div>
+    </header>
+
+    <main>
+        <p id="message" class="message">Chargement des indicateurs...</p>
+
+        <section id="dashboard" hidden>
+            <div class="kpi-grid">
+                <article class="kpi-card revenue">
+                    <p>Revenu combiné</p>
+                    <strong id="combined-revenue">—</strong>
+                    <small>Batch + temps réel</small>
+                </article>
+                <article class="kpi-card">
+                    <p>Commandes Batch</p>
+                    <strong id="batch-orders">—</strong>
+                    <small id="batch-units">— unités</small>
+                </article>
+                <article class="kpi-card">
+                    <p>Clics temps réel</p>
+                    <strong id="total-clicks">—</strong>
+                    <small id="conversion-rate">— % de conversion</small>
+                </article>
+                <article class="kpi-card accent">
+                    <p>Produit recommandé</p>
+                    <strong id="top-product">—</strong>
+                    <small>Score analytique le plus élevé</small>
+                </article>
+            </div>
+
+            <div class="content-grid">
+                <article class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">Tendance</p>
+                            <h2>Revenus par jour</h2>
+                        </div>
+                        <span id="run-date" class="tag"></span>
+                    </div>
+                    <div id="daily-chart" class="bar-chart"></div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">Décision</p>
+                            <h2>Recommandations</h2>
+                        </div>
+                    </div>
+                    <div id="recommendations" class="recommendations"></div>
+                </article>
+            </div>
+
+            <article class="panel product-panel">
+                <div class="panel-heading">
+                    <div>
+                        <p class="eyebrow">Vue consolidée</p>
+                        <h2>Performance des produits</h2>
+                    </div>
+                    <span id="updated-at" class="updated"></span>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Rang</th>
+                                <th>Produit</th>
+                                <th>Unités Batch</th>
+                                <th>Ventes temps réel</th>
+                                <th>Clics</th>
+                                <th>Revenu total</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody id="product-table"></tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
+    </main>
+
+    <footer>KubeShop — Projet de fin de session de Youness Safouani</footer>
+    <script src="app.js"></script>
+</body>
+</html>

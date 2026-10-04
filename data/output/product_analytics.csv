@@ -1,0 +1,5 @@
+rank,product_id,product,category,batch_orders,batch_units,batch_revenue,realtime_sales,realtime_revenue,clicks,conversion_rate_pct,total_revenue,recommendation_score,recommended_action
+1,P002,Moniteur 4K,Écrans,4,6,3599.94,0,0.0,1,0.0,3599.94,67.47,Mettre en avant - meilleur potentiel global
+2,P001,Ordinateur portable,Informatique,4,4,5199.96,0,0.0,0,0.0,5199.96,58.57,Visibilité ciblée - potentiel à développer
+3,P003,Clavier mécanique,Accessoires,6,14,1819.86,0,0.0,0,0.0,1819.86,47.5,Maintenir le stock - demande solide
+4,REALTIME,Laptop Demo,Temps réel,0,0,0.0,2,1499.99,0,0.0,1499.99,14.42,Visibilité ciblée - potentiel à développer
