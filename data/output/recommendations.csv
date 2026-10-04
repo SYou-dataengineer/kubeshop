@@ -1,5 +1,5 @@
-rank,product,category,recommendation_score,total_revenue,batch_units,realtime_sales,clicks,conversion_rate_pct,recommended_action
-1,Moniteur 4K,Écrans,67.47,3599.94,6,0,1,0.0,Mettre en avant - meilleur potentiel global
-2,Ordinateur portable,Informatique,58.57,5199.96,4,0,0,0.0,Visibilité ciblée - potentiel à développer
-3,Clavier mécanique,Accessoires,47.5,1819.86,14,0,0,0.0,Maintenir le stock - demande solide
-4,Laptop Demo,Temps réel,14.42,1499.99,0,2,0,0.0,Visibilité ciblée - potentiel à développer
+rank,product,category,recommendation_score,total_revenue,batch_units,realtime_sales,clicks,cart_additions,cart_items,conversion_rate_pct,click_to_cart_rate_pct,cart_to_purchase_rate_pct,recommended_action
+1,Ordinateur portable,Informatique,78.57,20799.84,4,12,9,9,9,100.0,100.0,100.0,Mettre en avant - meilleur potentiel global
+2,Clavier mécanique,Accessoires,53.33,4159.68,14,18,6,6,6,100.0,100.0,100.0,Maintenir le stock - demande solide
+3,Moniteur 4K,Écrans,31.06,4799.92,6,2,3,2,2,66.67,66.67,100.0,Visibilité ciblée - potentiel à développer
+4,Laptop Demo,Temps réel,3.61,1499.99,0,2,0,0,0,0.0,0.0,0.0,Visibilité ciblée - potentiel à développer

@@ -39,6 +39,11 @@
                     <strong id="total-clicks">—</strong>
                     <small id="conversion-rate">— % de conversion</small>
                 </article>
+                <article class="kpi-card">
+                    <p>Ajouts au panier</p>
+                    <strong id="total-cart-additions">—</strong>
+                    <small id="click-to-cart-rate">— % clic → panier</small>
+                </article>
                 <article class="kpi-card accent">
                     <p>Produit recommandé</p>
                     <strong id="top-product">—</strong>
@@ -51,9 +56,35 @@
                     <div class="panel-heading">
                         <div>
                             <p class="eyebrow">Tendance</p>
-                            <h2>Revenus par jour</h2>
+                            <h2 id="sales-chart-title">Revenus par jour</h2>
                         </div>
-                        <span id="run-date" class="tag"></span>
+                        <div class="chart-actions">
+                            <div
+                                class="period-tabs"
+                                role="group"
+                                aria-label="Période des revenus"
+                            >
+                                <button
+                                    class="period-button active"
+                                    type="button"
+                                    data-period="daily"
+                                    aria-pressed="true"
+                                >Jour</button>
+                                <button
+                                    class="period-button"
+                                    type="button"
+                                    data-period="weekly"
+                                    aria-pressed="false"
+                                >Semaine</button>
+                                <button
+                                    class="period-button"
+                                    type="button"
+                                    data-period="monthly"
+                                    aria-pressed="false"
+                                >Mois</button>
+                            </div>
+                            <span id="run-date" class="tag"></span>
+                        </div>
                     </div>
                     <div id="daily-chart" class="bar-chart"></div>
                 </article>
@@ -86,6 +117,7 @@
                                 <th>Unités Batch</th>
                                 <th>Ventes temps réel</th>
                                 <th>Clics</th>
+                                <th>Paniers</th>
                                 <th>Revenu total</th>
                                 <th>Score</th>
                             </tr>
@@ -97,7 +129,9 @@
         </section>
     </main>
 
-    <footer>KubeShop — Projet de fin de session de Youness Safouani</footer>
+    <footer>
+        KubeShop — Youness Safouani, Mohamed Badre Zaki et Talha Hassan
+    </footer>
     <script src="app.js"></script>
 </body>
 </html>

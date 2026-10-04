@@ -1,12 +1,14 @@
 # Guide Big Data — KubeShop
 
+**Équipe :** Youness Safouani, Mohamed Badre Zaki et Talha Hassan.
+
 ## 1. Objectif
 
 Cette extension transforme KubeShop en plateforme analytique capable de traiter les événements d'une boutique en ligne en temps réel et en mode Batch.
 
 Elle permet de :
 
-- publier les paiements et les clics dans Kafka;
+- publier les paiements, les clics et les ajouts au panier dans Kafka;
 - traiter les événements avec PySpark Structured Streaming;
 - conserver les indicateurs temps réel dans Cassandra;
 - orchestrer les traitements Batch avec Apache Airflow;
@@ -38,16 +40,21 @@ flowchart TD
     A --> C["Event Service"]
     B --> D["PostgreSQL"]
     B --> E["Kafka : payments"]
-    C --> F["Kafka : clicks"]
+    C --> F["Kafka : clicks / cart-events"]
     E --> G["PySpark Streaming"]
     F --> G
     G --> H["Cassandra"]
 ```
 
-Deux contrats d'événements sont traités :
+Trois contrats d'événements sont traités :
 
 - `payment_completed` : transaction, produit, montant, devise, statut et date;
 - `product_clicked` : produit, prix, devise, session et date.
+- `product_added_to_cart` : produit, prix, quantité, devise, session et date.
+
+PySpark Structured Streaming traite ces événements par micro-lots de dix
+secondes. Il s'agit donc d'un traitement quasi temps réel. Chaque flux utilise
+son propre checkpoint afin de pouvoir reprendre après un redémarrage.
 
 Les montants agrégés dans Cassandra sont conservés en cents afin d'éviter les erreurs d'arrondi monétaire.
 
@@ -75,13 +82,13 @@ Le DAG `kubeshop_batch_analytics` exécute cinq tâches :
 
 | Composant | Fonction |
 |---|---|
-| Frontend | Boutique et génération des clics |
+| Frontend | Boutique et génération des clics et ajouts au panier |
 | Auth Service | Simulation de l'authentification |
 | Payment Service | PostgreSQL et publication Kafka |
-| Event Service | Publication des clics dans Kafka |
+| Event Service | Publication des clics et ajouts au panier dans Kafka |
 | PostgreSQL | Transactions |
 | Redis | Sessions |
-| Kafka | Topics `payments` et `clicks` |
+| Kafka | Topics `payments`, `clicks` et `cart-events` |
 | PySpark Streaming | Agrégations temps réel |
 | Cassandra | Métriques analytiques |
 | Airflow | Orchestration quotidienne du Batch |
@@ -159,6 +166,14 @@ docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-s
 docker compose -f .\docker-compose.yml -f .\docker-compose.bigdata.yml exec cassandra cqlsh -e "SELECT product, clicks_count FROM kubeshop_analytics.product_click_metrics;"
 ```
 
+Pour tester l'ajout au panier, cliquer sur `Ajouter au panier` dans la boutique,
+attendre environ quinze secondes, puis exécuter :
+
+```powershell
+docker compose -f .\docker-compose.yml -f .\docker-compose.bigdata.yml exec kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:19092 --topic cart-events --from-beginning --max-messages 1 --timeout-ms 10000
+docker compose -f .\docker-compose.yml -f .\docker-compose.bigdata.yml exec cassandra cqlsh -e "SELECT product, cart_additions_count, cart_items_count, total_cart_value_cents FROM kubeshop_analytics.product_cart_metrics;"
+```
+
 ## 9. Démonstration Batch
 
 Déclencher le DAG :
@@ -175,6 +190,8 @@ Vérifier Cassandra :
 ```powershell
 docker compose -f .\docker-compose.yml -f .\docker-compose.bigdata.yml exec cassandra cqlsh -e "SELECT * FROM kubeshop_analytics.batch_product_metrics;"
 docker compose -f .\docker-compose.yml -f .\docker-compose.bigdata.yml exec cassandra cqlsh -e "SELECT * FROM kubeshop_analytics.batch_daily_sales;"
+docker compose -f .\docker-compose.yml -f .\docker-compose.bigdata.yml exec cassandra cqlsh -e "SELECT * FROM kubeshop_analytics.batch_weekly_sales;"
+docker compose -f .\docker-compose.yml -f .\docker-compose.bigdata.yml exec cassandra cqlsh -e "SELECT * FROM kubeshop_analytics.batch_monthly_sales;"
 ```
 
 Avec le jeu de données fourni, le Batch produit 14 commandes approuvées, 24 unités et `10 619,76 $` de revenu sur huit journées.
@@ -187,6 +204,8 @@ Le DAG actualise les exemples versionnés dans `data/output/` :
 |---|---|
 | `product_metrics.csv` | Ventes et revenus Batch par produit |
 | `daily_sales.csv` | Ventes quotidiennes |
+| `weekly_sales.csv` | Ventes du lundi au dimanche |
+| `monthly_sales.csv` | Ventes par mois civil |
 | `dashboard_kpis.csv` | KPI principaux |
 | `product_analytics.csv` | Vue combinée Batch et temps réel |
 | `recommendations.csv` | Classement et recommandations |
@@ -195,7 +214,15 @@ Le DAG actualise les exemples versionnés dans `data/output/` :
 
 Ces fichiers sont inclus comme résultats reproductibles de démonstration et sont régénérés à chaque exécution réussie du DAG.
 
-Pour Power BI Desktop, importer principalement `dashboard_kpis.csv`, `product_analytics.csv`, `daily_sales.csv` et `recommendations.csv`. Il s'agit d'exports prêts à importer; aucun fichier `.pbix` n'est inclus. Voir `docs/powerbi/POWER_BI_GUIDE.md`.
+Pour Power BI Desktop, importer principalement `dashboard_kpis.csv`,
+`product_analytics.csv`, `daily_sales.csv`, `weekly_sales.csv`,
+`monthly_sales.csv` et `recommendations.csv`. Il s'agit d'exports prêts à
+importer; aucun fichier `.pbix` n'est inclus. Voir
+`docs/powerbi/POWER_BI_GUIDE.md`.
+
+Le tableau de bord Web permet de choisir la granularité Jour, Semaine ou Mois.
+Les événements sont bien traités quasi en temps réel dans Cassandra, mais le
+dashboard est un instantané actualisé après l'exécution du DAG Airflow.
 
 ## 11. Validation automatique
 
@@ -205,7 +232,9 @@ Exécuter le contrôle non destructif :
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-project.ps1
 ```
 
-Le script vérifie Compose, les 11 services, les six URL, les topics Kafka, quatre tables Cassandra, Airflow et les fichiers BI.
+Le script vérifie Compose, les 11 services, les six URL, les trois topics
+Kafka, huit tables Cassandra, Airflow, les fichiers BI et la cohérence des
+totaux jour/semaine/mois. Le résultat attendu est `27 PASS / 0 FAIL`.
 
 ## 12. Journaux et dépannage
 
@@ -242,4 +271,13 @@ Elle doit uniquement être utilisée pour une réinitialisation complète volont
 
 ## 14. Limites et sécurité
 
-Cette démonstration locale utilise un seul broker Kafka, un seul nœud Cassandra et Airflow en mode autonome. L'authentification est simplifiée, les paiements sont simulés, les composants analytiques ne sont pas protégés par TLS et la publication PostgreSQL vers Kafka n'utilise pas d'outbox transactionnelle. Une solution de production devrait ajouter gestion des secrets, TLS, contrôle d'accès, réplication, sauvegardes, Schema Registry, Dead Letter Queue, supervision et stratégie d'idempotence.
+Cette démonstration locale utilise un seul broker Kafka, un seul nœud
+Cassandra et Airflow en mode autonome. L'ajout au panier est un événement
+analytique; ce n'est pas encore un panier commercial avec modification ou
+suppression d'articles. L'authentification est simplifiée, les paiements sont
+simulés, les composants analytiques ne sont pas protégés par TLS et la
+publication PostgreSQL vers Kafka n'utilise pas d'outbox transactionnelle.
+Le score de recommandation est une règle analytique transparente, pas un modèle
+de machine learning entraîné. Une solution de production devrait ajouter
+gestion des secrets, TLS, contrôle d'accès, réplication, sauvegardes, Schema
+Registry, Dead Letter Queue, supervision et stratégie d'idempotence.

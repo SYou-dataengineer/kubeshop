@@ -97,6 +97,34 @@ def initialize_cassandra(session):
         """
     )
 
+    session.execute(
+        """
+        CREATE TABLE IF NOT EXISTS batch_weekly_sales (
+            week_start date PRIMARY KEY,
+            week_end date,
+            orders_count bigint,
+            units_sold bigint,
+            total_revenue decimal,
+            run_date date,
+            updated_at timestamp
+        )
+        """
+    )
+
+    session.execute(
+        """
+        CREATE TABLE IF NOT EXISTS batch_monthly_sales (
+            month_start date PRIMARY KEY,
+            month_end date,
+            orders_count bigint,
+            units_sold bigint,
+            total_revenue decimal,
+            run_date date,
+            updated_at timestamp
+        )
+        """
+    )
+
 
 def write_csv(path, fieldnames, rows):
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -161,10 +189,56 @@ def main():
         .orderBy("order_date")
     )
 
+    weekly_sales_df = (
+        enriched.withColumn(
+            "week_start",
+            F.to_date(F.date_trunc("week", F.col("order_date"))),
+        )
+        .groupBy("week_start")
+        .agg(
+            F.countDistinct("order_id").alias("orders_count"),
+            F.sum("quantity").cast("long").alias("units_sold"),
+            F.round(F.sum("line_revenue"), 2).alias("total_revenue"),
+        )
+        .withColumn("week_end", F.date_add(F.col("week_start"), 6))
+        .select(
+            "week_start",
+            "week_end",
+            "orders_count",
+            "units_sold",
+            "total_revenue",
+        )
+        .orderBy("week_start")
+    )
+
+    monthly_sales_df = (
+        enriched.withColumn(
+            "month_start",
+            F.trunc(F.col("order_date"), "month"),
+        )
+        .groupBy("month_start")
+        .agg(
+            F.countDistinct("order_id").alias("orders_count"),
+            F.sum("quantity").cast("long").alias("units_sold"),
+            F.round(F.sum("line_revenue"), 2).alias("total_revenue"),
+        )
+        .withColumn("month_end", F.last_day(F.col("month_start")))
+        .select(
+            "month_start",
+            "month_end",
+            "orders_count",
+            "units_sold",
+            "total_revenue",
+        )
+        .orderBy("month_start")
+    )
+
     product_rows = [row.asDict() for row in product_metrics_df.collect()]
     daily_rows = [row.asDict() for row in daily_sales_df.collect()]
+    weekly_rows = [row.asDict() for row in weekly_sales_df.collect()]
+    monthly_rows = [row.asDict() for row in monthly_sales_df.collect()]
 
-    if not product_rows or not daily_rows:
+    if not all((product_rows, daily_rows, weekly_rows, monthly_rows)):
         raise RuntimeError("Aucune donnée valide produite par le traitement batch")
 
     cluster, session = connect_cassandra()
@@ -202,6 +276,34 @@ def main():
             """
         )
 
+        insert_weekly = session.prepare(
+            """
+            INSERT INTO batch_weekly_sales (
+                week_start,
+                week_end,
+                orders_count,
+                units_sold,
+                total_revenue,
+                run_date,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """
+        )
+
+        insert_monthly = session.prepare(
+            """
+            INSERT INTO batch_monthly_sales (
+                month_start,
+                month_end,
+                orders_count,
+                units_sold,
+                total_revenue,
+                run_date,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """
+        )
+
         for row in product_rows:
             session.execute(
                 insert_product,
@@ -222,6 +324,34 @@ def main():
                 insert_daily,
                 (
                     row["order_date"],
+                    int(row["orders_count"]),
+                    int(row["units_sold"]),
+                    Decimal(str(row["total_revenue"])),
+                    run_date,
+                    updated_at,
+                ),
+            )
+
+        for row in weekly_rows:
+            session.execute(
+                insert_weekly,
+                (
+                    row["week_start"],
+                    row["week_end"],
+                    int(row["orders_count"]),
+                    int(row["units_sold"]),
+                    Decimal(str(row["total_revenue"])),
+                    run_date,
+                    updated_at,
+                ),
+            )
+
+        for row in monthly_rows:
+            session.execute(
+                insert_monthly,
+                (
+                    row["month_start"],
+                    row["month_end"],
                     int(row["orders_count"]),
                     int(row["units_sold"]),
                     Decimal(str(row["total_revenue"])),
@@ -252,9 +382,34 @@ def main():
         daily_rows,
     )
 
+    write_csv(
+        os.path.join(args.output, "weekly_sales.csv"),
+        [
+            "week_start",
+            "week_end",
+            "orders_count",
+            "units_sold",
+            "total_revenue",
+        ],
+        weekly_rows,
+    )
+
+    write_csv(
+        os.path.join(args.output, "monthly_sales.csv"),
+        [
+            "month_start",
+            "month_end",
+            "orders_count",
+            "units_sold",
+            "total_revenue",
+        ],
+        monthly_rows,
+    )
+
     print(
         f"Batch terminé: {len(product_rows)} produit(s), "
-        f"{len(daily_rows)} jour(s), résultats écrits dans {args.output}"
+        f"{len(daily_rows)} jour(s), {len(weekly_rows)} semaine(s), "
+        f"{len(monthly_rows)} mois, résultats écrits dans {args.output}"
     )
 
 

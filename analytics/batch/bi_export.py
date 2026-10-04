@@ -17,6 +17,8 @@ def parse_args():
     )
     parser.add_argument("--product-metrics", required=True)
     parser.add_argument("--daily-sales", required=True)
+    parser.add_argument("--weekly-sales", required=True)
+    parser.add_argument("--monthly-sales", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--run-date", required=True)
     parser.add_argument("--skip-cassandra", action="store_true")
@@ -60,7 +62,7 @@ def connect_cassandra(max_attempts=12, delay_seconds=5):
 
 def read_realtime_metrics(skip_cassandra=False):
     if skip_cassandra:
-        return {}, {}
+        return {}, {}, {}
 
     cluster, session = connect_cassandra()
 
@@ -77,6 +79,20 @@ def read_realtime_metrics(skip_cassandra=False):
             FROM product_click_metrics
             """
         )
+        try:
+            cart_rows = session.execute(
+                """
+                SELECT product, cart_additions_count, cart_items_count,
+                       total_cart_value_cents
+                FROM product_cart_metrics
+                """
+            )
+        except Exception as error:
+            print(
+                "Métriques panier temporairement indisponibles : "
+                f"{error}"
+            )
+            cart_rows = []
 
         payments = {
             row.product: {
@@ -89,7 +105,16 @@ def read_realtime_metrics(skip_cassandra=False):
         clicks = {
             row.product: int(row.clicks_count or 0) for row in click_rows
         }
-        return payments, clicks
+        carts = {
+            row.product: {
+                "additions": int(row.cart_additions_count or 0),
+                "items": int(row.cart_items_count or 0),
+                "value": Decimal(int(row.total_cart_value_cents or 0))
+                / Decimal("100"),
+            }
+            for row in cart_rows
+        }
+        return payments, clicks, carts
     finally:
         cluster.shutdown()
 
@@ -98,7 +123,7 @@ def rounded(value):
     return float(Decimal(str(value)).quantize(Decimal("0.01")))
 
 
-def build_product_rows(batch_rows, payments, clicks):
+def build_product_rows(batch_rows, payments, clicks, carts):
     products = {}
 
     for row in batch_rows:
@@ -113,9 +138,12 @@ def build_product_rows(batch_rows, payments, clicks):
             "realtime_sales": 0,
             "realtime_revenue": Decimal("0"),
             "clicks": 0,
+            "cart_additions": 0,
+            "cart_items": 0,
+            "cart_value": Decimal("0"),
         }
 
-    realtime_products = set(payments) | set(clicks)
+    realtime_products = set(payments) | set(clicks) | set(carts)
 
     for product in realtime_products:
         products.setdefault(
@@ -130,6 +158,9 @@ def build_product_rows(batch_rows, payments, clicks):
                 "realtime_sales": 0,
                 "realtime_revenue": Decimal("0"),
                 "clicks": 0,
+                "cart_additions": 0,
+                "cart_items": 0,
+                "cart_value": Decimal("0"),
             },
         )
         products[product]["realtime_sales"] = payments.get(
@@ -139,6 +170,15 @@ def build_product_rows(batch_rows, payments, clicks):
             product, {}
         ).get("revenue", Decimal("0"))
         products[product]["clicks"] = clicks.get(product, 0)
+        products[product]["cart_additions"] = carts.get(
+            product, {}
+        ).get("additions", 0)
+        products[product]["cart_items"] = carts.get(product, {}).get(
+            "items", 0
+        )
+        products[product]["cart_value"] = carts.get(product, {}).get(
+            "value", Decimal("0")
+        )
 
     rows = []
 
@@ -148,9 +188,26 @@ def build_product_rows(batch_rows, payments, clicks):
         )
         realtime_sales = product["realtime_sales"]
         product_clicks = product["clicks"]
+        cart_additions = product["cart_additions"]
         conversion_rate = (
             min(Decimal("100"), Decimal(realtime_sales * 100) / product_clicks)
             if product_clicks
+            else Decimal("0")
+        )
+        click_to_cart_rate = (
+            min(
+                Decimal("100"),
+                Decimal(cart_additions * 100) / product_clicks,
+            )
+            if product_clicks
+            else Decimal("0")
+        )
+        cart_to_purchase_rate = (
+            min(
+                Decimal("100"),
+                Decimal(realtime_sales * 100) / cart_additions,
+            )
+            if cart_additions
             else Decimal("0")
         )
 
@@ -159,6 +216,8 @@ def build_product_rows(batch_rows, payments, clicks):
                 **product,
                 "total_revenue": total_revenue,
                 "conversion_rate_pct": conversion_rate,
+                "click_to_cart_rate_pct": click_to_cart_rate,
+                "cart_to_purchase_rate_pct": cart_to_purchase_rate,
             }
         )
 
@@ -212,7 +271,16 @@ def serializable_product_row(row):
         "realtime_sales": row["realtime_sales"],
         "realtime_revenue": rounded(row["realtime_revenue"]),
         "clicks": row["clicks"],
+        "cart_additions": row["cart_additions"],
+        "cart_items": row["cart_items"],
+        "cart_value": rounded(row["cart_value"]),
         "conversion_rate_pct": rounded(row["conversion_rate_pct"]),
+        "click_to_cart_rate_pct": rounded(
+            row["click_to_cart_rate_pct"]
+        ),
+        "cart_to_purchase_rate_pct": rounded(
+            row["cart_to_purchase_rate_pct"]
+        ),
         "total_revenue": rounded(row["total_revenue"]),
         "recommendation_score": rounded(row["recommendation_score"] * 100),
         "recommended_action": row["recommended_action"],
@@ -223,12 +291,14 @@ def main():
     args = parse_args()
     batch_rows = read_csv(args.product_metrics)
     daily_rows = read_csv(args.daily_sales)
+    weekly_rows = read_csv(args.weekly_sales)
+    monthly_rows = read_csv(args.monthly_sales)
 
-    if not batch_rows or not daily_rows:
+    if not all((batch_rows, daily_rows, weekly_rows, monthly_rows)):
         raise RuntimeError("Les fichiers Batch sont vides")
 
-    payments, clicks = read_realtime_metrics(args.skip_cassandra)
-    product_rows = build_product_rows(batch_rows, payments, clicks)
+    payments, clicks, carts = read_realtime_metrics(args.skip_cassandra)
+    product_rows = build_product_rows(batch_rows, payments, clicks, carts)
     exported_products = [
         serializable_product_row(row) for row in product_rows
     ]
@@ -243,9 +313,32 @@ def main():
         (row["revenue"] for row in payments.values()), Decimal("0")
     )
     total_clicks = sum(clicks.values())
+    total_cart_additions = sum(
+        row["additions"] for row in carts.values()
+    )
+    total_cart_items = sum(row["items"] for row in carts.values())
+    total_cart_value = sum(
+        (row["value"] for row in carts.values()), Decimal("0")
+    )
     conversion_rate = (
         min(Decimal("100"), Decimal(realtime_sales * 100) / total_clicks)
         if total_clicks
+        else Decimal("0")
+    )
+    click_to_cart_rate = (
+        min(
+            Decimal("100"),
+            Decimal(total_cart_additions * 100) / total_clicks,
+        )
+        if total_clicks
+        else Decimal("0")
+    )
+    cart_to_purchase_rate = (
+        min(
+            Decimal("100"),
+            Decimal(realtime_sales * 100) / total_cart_additions,
+        )
+        if total_cart_additions
         else Decimal("0")
     )
     top_product = exported_products[0]["product"] if exported_products else "N/A"
@@ -260,7 +353,12 @@ def main():
         "realtime_sales": realtime_sales,
         "realtime_revenue": rounded(realtime_revenue),
         "total_clicks": total_clicks,
+        "total_cart_additions": total_cart_additions,
+        "total_cart_items": total_cart_items,
+        "total_cart_value": rounded(total_cart_value),
         "conversion_rate_pct": rounded(conversion_rate),
+        "click_to_cart_rate_pct": rounded(click_to_cart_rate),
+        "cart_to_purchase_rate_pct": rounded(cart_to_purchase_rate),
         "combined_revenue": rounded(batch_revenue + realtime_revenue),
         "top_product": top_product,
     }
@@ -289,7 +387,11 @@ def main():
         "batch_units",
         "realtime_sales",
         "clicks",
+        "cart_additions",
+        "cart_items",
         "conversion_rate_pct",
+        "click_to_cart_rate_pct",
+        "cart_to_purchase_rate_pct",
         "recommended_action",
     ]
     write_csv(
@@ -314,6 +416,26 @@ def main():
                 "total_revenue": rounded(row["total_revenue"]),
             }
             for row in daily_rows
+        ],
+        "weeklySales": [
+            {
+                "week_start": row["week_start"],
+                "week_end": row["week_end"],
+                "orders_count": int(row["orders_count"]),
+                "units_sold": int(row["units_sold"]),
+                "total_revenue": rounded(row["total_revenue"]),
+            }
+            for row in weekly_rows
+        ],
+        "monthlySales": [
+            {
+                "month_start": row["month_start"],
+                "month_end": row["month_end"],
+                "orders_count": int(row["orders_count"]),
+                "units_sold": int(row["units_sold"]),
+                "total_revenue": rounded(row["total_revenue"]),
+            }
+            for row in monthly_rows
         ],
     }
 
