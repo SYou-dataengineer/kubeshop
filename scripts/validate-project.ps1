@@ -188,6 +188,8 @@ foreach ($endpoint in $httpEndpoints) {
 
 $requiredOutputFiles = @(
     "data/output/daily_sales.csv",
+    "data/output/weekly_sales.csv",
+    "data/output/monthly_sales.csv",
     "data/output/product_metrics.csv",
     "data/output/dashboard_kpis.csv",
     "data/output/dashboard_summary.json",
@@ -220,7 +222,7 @@ foreach ($relativePath in $requiredOutputFiles) {
     }
 }
 
-Invoke-ValidationCheck -Name "Topics Kafka payments et clicks" -Action {
+Invoke-ValidationCheck -Name "Topics Kafka payments, clicks et cart-events" -Action {
     $result = Invoke-ComposeCommand -Arguments @(
         "exec", "-T", "kafka",
         "/opt/kafka/bin/kafka-topics.sh",
@@ -228,11 +230,12 @@ Invoke-ValidationCheck -Name "Topics Kafka payments et clicks" -Action {
     )
     Assert-NativeSuccess -Result $result -Label "Liste des topics Kafka"
     $topics = @($result.StdOut -split "\r?\n" | ForEach-Object { $_.Trim() })
-    $missingTopics = @(@("payments", "clicks") | Where-Object { $_ -notin $topics })
+    $expectedTopics = @("payments", "clicks", "cart-events")
+    $missingTopics = @($expectedTopics | Where-Object { $_ -notin $topics })
     if ($missingTopics.Count -gt 0) {
         throw "Topics absents : $($missingTopics -join ', ')"
     }
-    "Topics payments et clicks disponibles."
+    "Topics payments, clicks et cart-events disponibles."
 }
 
 Invoke-ValidationCheck -Name "Airflow possède une exécution réussie" -Action {
@@ -265,8 +268,12 @@ Invoke-ValidationCheck -Name "Airflow possède une exécution réussie" -Action 
 $cassandraTables = @(
     "product_metrics",
     "product_click_metrics",
+    "cart_events",
+    "product_cart_metrics",
     "batch_product_metrics",
-    "batch_daily_sales"
+    "batch_daily_sales",
+    "batch_weekly_sales",
+    "batch_monthly_sales"
 )
 
 foreach ($table in $cassandraTables) {
@@ -282,6 +289,56 @@ foreach ($table in $cassandraTables) {
         }
         "Table accessible et requête SELECT réussie."
     }
+}
+
+Invoke-ValidationCheck -Name "Cohérence Batch jour, semaine et mois" -Action {
+    $periodFiles = [ordered]@{
+        jour = "data/output/daily_sales.csv"
+        semaine = "data/output/weekly_sales.csv"
+        mois = "data/output/monthly_sales.csv"
+    }
+    $totals = @{}
+
+    foreach ($period in $periodFiles.Keys) {
+        $rows = @(Import-Csv -LiteralPath (
+            Join-Path $repoRoot $periodFiles[$period]
+        ))
+        $orders = [long]0
+        $units = [long]0
+        $revenue = [decimal]0
+
+        foreach ($row in $rows) {
+            $orders += [long]$row.orders_count
+            $units += [long]$row.units_sold
+            $revenue += [decimal]::Parse(
+                [string]$row.total_revenue,
+                [Globalization.CultureInfo]::InvariantCulture
+            )
+        }
+
+        $totals[$period] = [pscustomobject]@{
+            Orders = $orders
+            Units = $units
+            Revenue = $revenue
+        }
+    }
+
+    foreach ($period in @("semaine", "mois")) {
+        if (
+            $totals[$period].Orders -ne $totals.jour.Orders -or
+            $totals[$period].Units -ne $totals.jour.Units -or
+            $totals[$period].Revenue -ne $totals.jour.Revenue
+        ) {
+            throw "Les totaux $period ne correspondent pas aux totaux quotidiens."
+        }
+    }
+
+    $formattedRevenue = $totals.jour.Revenue.ToString(
+        "0.00",
+        [Globalization.CultureInfo]::InvariantCulture
+    )
+    "Totaux cohérents : $($totals.jour.Orders) commandes, " +
+        "$($totals.jour.Units) unités et $formattedRevenue CAD."
 }
 
 Write-Host "`nRésumé de validation" -ForegroundColor Cyan

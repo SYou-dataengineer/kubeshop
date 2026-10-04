@@ -41,6 +41,32 @@ async function trackProductClick(product, price) {
     }
 }
 
+async function trackCartAddition(product, price, quantity = 1) {
+    try {
+        const response = await fetch(`${EVENTS_API_URL}/events/cart`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                product,
+                price,
+                quantity,
+                sessionId: getAnalyticsSessionId()
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+    } catch (error) {
+        console.warn(
+            "Événement d’ajout au panier non publié :",
+            error.message
+        );
+    }
+}
+
 function selectProduct(productName, price) {
     productInput.value = productName;
     amountInput.value = price.toFixed(2);
@@ -53,6 +79,15 @@ function selectProduct(productName, price) {
     document
         .getElementById("payment-form")
         .scrollIntoView({ behavior: "smooth" });
+}
+
+function addToCart(productName, price, quantity = 1) {
+    selectProduct(productName, price);
+
+    paymentResult.textContent = `${productName} a été ajouté au panier.`;
+    paymentResult.className = "result success";
+
+    void trackCartAddition(productName, price, quantity);
 }
 
 document

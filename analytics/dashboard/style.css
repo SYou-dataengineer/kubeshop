@@ -112,7 +112,7 @@ h2 {
 
 .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 16px;
 }
 
@@ -180,6 +180,51 @@ h2 {
     border-radius: 8px;
     color: var(--muted);
     font-size: 0.78rem;
+}
+
+.chart-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.period-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(7, 17, 31, 0.45);
+}
+
+.period-button {
+    padding: 6px 9px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.75rem;
+}
+
+.period-button:hover,
+.period-button.active {
+    background: rgba(34, 211, 238, 0.14);
+    color: var(--cyan);
+}
+
+.period-button:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
+}
+
+.chart-empty {
+    align-self: center;
+    margin: auto;
+    color: var(--muted);
 }
 
 .bar-chart {
@@ -319,5 +364,11 @@ footer {
 
     .bar-value {
         display: none;
+    }
+
+    .panel-heading,
+    .chart-actions {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }

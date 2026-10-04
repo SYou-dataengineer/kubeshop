@@ -6,6 +6,7 @@ services:
       PORT: "3003"
       KAFKA_BROKERS: kafka:19092
       KAFKA_TOPIC_CLICKS: clicks
+      KAFKA_TOPIC_CART: cart-events
       KAFKA_CLIENT_ID: kubeshop-event-service
     depends_on:
       kafka:
@@ -47,10 +48,13 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:19092
       KAFKA_TOPIC_PAYMENTS: payments
       KAFKA_TOPIC_CLICKS: clicks
+      KAFKA_TOPIC_CART: cart-events
       CASSANDRA_HOST: cassandra
       CASSANDRA_PORT: "9042"
       CASSANDRA_KEYSPACE: kubeshop_analytics
-      CHECKPOINT_LOCATION: /checkpoints/payments
+      PAYMENTS_CHECKPOINT_LOCATION: /checkpoints/payments
+      CLICKS_CHECKPOINT_LOCATION: /checkpoints/clicks
+      CART_CHECKPOINT_LOCATION: /checkpoints/cart
     depends_on:
       kafka:
         condition: service_healthy

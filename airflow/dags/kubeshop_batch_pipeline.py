@@ -46,7 +46,9 @@ with DAG(
         task_id="validate_batch_output_files",
         bash_command=(
             "test -s /opt/airflow/output/product_metrics.csv "
-            "&& test -s /opt/airflow/output/daily_sales.csv"
+            "&& test -s /opt/airflow/output/daily_sales.csv "
+            "&& test -s /opt/airflow/output/weekly_sales.csv "
+            "&& test -s /opt/airflow/output/monthly_sales.csv"
         ),
     )
 
@@ -56,6 +58,8 @@ with DAG(
             "python /opt/airflow/jobs/bi_export.py "
             "--product-metrics /opt/airflow/output/product_metrics.csv "
             "--daily-sales /opt/airflow/output/daily_sales.csv "
+            "--weekly-sales /opt/airflow/output/weekly_sales.csv "
+            "--monthly-sales /opt/airflow/output/monthly_sales.csv "
             "--output /opt/airflow/output "
             "--run-date '{{ ds }}'"
         ),
